@@ -35,9 +35,15 @@ const edits = [
   {
     file: "src/app/(app)/auth/layout.tsx",
     find: /Over <span[^>]*>20,000\+<\/span>[\s\S]*?Postiz To Grow Their Social Presence/,
-    // AGPL: people using the app must be offered its source, so the sign-in page links to this repo.
+    replace: "Schedule and publish to all your social accounts<br />from one place",
+  },
+  {
+    // AGPL: people using the app must be offered its source. It sits in Settings (behind the login), not on the
+    // sign-in page, so app reviewers don't land on a page about another product.
+    file: "src/components/settings/global.settings.tsx",
+    find: /<DeleteAccountComponent \/>/,
     replace:
-      'Schedule and publish to all your social accounts<br />from one place<br /><a href="https://github.com/TomDowling/ds.social-poster" className="text-[13px] opacity-50 underline">Source code</a>',
+      '<DeleteAccountComponent />\n      <div className="mt-[24px] text-[13px] opacity-60">This app is open source (AGPL-3.0). <a href="https://github.com/TomDowling/ds.social-poster" target="_blank" rel="noreferrer" className="underline">Source code</a></div>',
   },
 ];
 for (const e of edits) {
