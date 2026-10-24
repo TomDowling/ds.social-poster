@@ -1,7 +1,7 @@
 # Digital Space Social Poster: the official Postiz image with Digital Space branding.
 # POSTIZ_VERSION below is the only place the version lives. The weekly postiz-update workflow bumps it in a pull
 # request; merging builds ghcr.io/tomdowling/ds-social-poster:<version>. Nothing else in Postiz is changed.
-ARG POSTIZ_VERSION=v2.25.0
+ARG POSTIZ_VERSION=v2.25.3
 FROM ghcr.io/gitroomhq/postiz-app:${POSTIZ_VERSION}
 
 COPY brand /ds-brand
