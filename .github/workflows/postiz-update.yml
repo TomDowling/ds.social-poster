@@ -1,0 +1,74 @@
+name: postiz-update
+# Weekly (Friday 06:00 UTC, before Ops Steward's Saturday update check): is there a newer Postiz release?
+# If so: bump ARG POSTIZ_VERSION on a branch, test-build it with the branding, and open a pull request for Tom.
+# A failed test build still opens the PR, marked "branding needs fixing", so it can't be missed.
+# Merging the PR builds the image on main; switching Social Poster to it is the Saturday/Sunday update routine.
+on:
+  schedule:
+    - cron: "0 6 * * 5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare versions
+        id: v
+        run: |
+          current=$(sed -n 's/^ARG POSTIZ_VERSION=//p' Dockerfile)
+          latest=$(gh api repos/gitroomhq/postiz-app/releases/latest -q .tag_name)
+          echo "current=$current latest=$latest"
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          if [ "$current" = "$latest" ]; then echo "up to date"; exit 0; fi
+          if gh pr list --head "postiz-$latest" --state all --json number -q '.[0].number' | grep -q .; then
+            echo "PR for $latest already exists"; exit 0
+          fi
+          echo "bump=yes" >> "$GITHUB_OUTPUT"
+      - name: Bump on a branch
+        if: steps.v.outputs.bump == 'yes'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "postiz-${{ steps.v.outputs.latest }}"
+          sed -i "s/^ARG POSTIZ_VERSION=.*/ARG POSTIZ_VERSION=${{ steps.v.outputs.latest }}/" Dockerfile
+          git commit -am "Postiz ${{ steps.v.outputs.current }} → ${{ steps.v.outputs.latest }}"
+          git push -u origin HEAD
+      - uses: docker/setup-buildx-action@v3
+        if: steps.v.outputs.bump == 'yes'
+      - name: Test build (nothing pushed)
+        id: build
+        if: steps.v.outputs.bump == 'yes'
+        continue-on-error: true
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          build-args: POSTIZ_VERSION=${{ steps.v.outputs.latest }}
+          push: false
+      - name: Open the pull request
+        if: steps.v.outputs.bump == 'yes'
+        run: |
+          cur="${{ steps.v.outputs.current }}"; new="${{ steps.v.outputs.latest }}"
+          if [ "${{ steps.build.outcome }}" = "success" ]; then
+            title="Postiz $cur → $new"
+            state="Test build with Digital Space branding: **passed**."
+          else
+            title="Postiz $cur → $new (branding needs fixing)"
+            state="Test build with Digital Space branding: **failed**. Look for the \`ds-brand:\` line in the run log: Postiz moved something \`brand/apply.mjs\` expects. Fix that on this branch before merging."
+          fi
+          gh pr create --head "postiz-$new" --base main --title "$title" --body "$state
+
+          Release notes (read all of them between $cur and $new before merging): https://github.com/gitroomhq/postiz-app/releases
+
+          Merging builds \`ghcr.io/tomdowling/ds-social-poster:$new\`. Social Poster only switches to it through the update routine (Ops Steward proposes on Saturday, Tom approves, ops-apply on Sunday, DB backup first).
+
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

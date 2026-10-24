@@ -13,10 +13,17 @@ a thin layer on the official Postiz image. It changes the branding only:
 
 ## Update Postiz
 
-1. Change `POSTIZ_VERSION` in `Dockerfile` and `.github/workflows/build.yml`.
-2. Push to `main`. GitHub Actions builds `ghcr.io/tomdowling/ds-social-poster:<version>`.
-3. If the build fails at a `ds-brand:` line, Postiz moved something: fix `brand/apply.mjs`.
-4. Point the Coolify service at the new tag (runbook: `Infra/Servers/runbooks/postiz.md`).
+Every Friday the `postiz-update` workflow checks for a new Postiz release. If there is one, it bumps
+`ARG POSTIZ_VERSION` in the `Dockerfile` on a branch, test-builds it with the branding, and opens a pull request
+(titled "branding needs fixing" if the test build failed).
+
+1. Read the Postiz release notes linked in the PR. Merge it: GitHub Actions builds
+   `ghcr.io/tomdowling/ds-social-poster:<version>`.
+2. Ops Steward proposes the switch in the Saturday update check; Tom approves in DS Panel; `ops-apply` takes a
+   DB backup and changes the image tag in Coolify on Sunday (runbook: `Infra/Servers/runbooks/postiz.md`).
+3. If a build fails at a `ds-brand:` line, Postiz moved something: fix `brand/apply.mjs` on the PR branch.
+
+Run the check by hand: Actions → postiz-update → Run workflow.
 
 ## Licence
 
